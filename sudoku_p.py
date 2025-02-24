@@ -1,27 +1,22 @@
-#!/usr/local/bin/python3
-
-""" program to solve SUDOKUs by finding unique candidates
-For command description, start $python3 sudoku.py -help
-"""
+""" class sudoku: this is a class to solve SUDOKU puzzles """
 
 VERSION = "0.1"
 VERSION_DATE = "18-Feb-2025"
 
-# file name of input file with SUDOKUs
-SU_FILE_NAME = "easy_50.txt"
-#SU_FILE_NAME = "sudoku_1.txt"
+# a structure for candidates contain the row, col and the list of possible values
+class candidate:
+    def __init__(self, row, col, candidateList):
+        self.row = row
+        self.col = col
+        self.candidateList = candidateList
 
-DEBUG_LEVEL = 1
+    def __str__(self):
+        if len(self.candidateList) == 1:
+            return f"{self.row},{self.col}: {self.candidateList}        ***"
+        else:
+            return f"{self.row},{self.col}: {self.candidateList}"
 
-# select the SUDOKUs to be solved by their number in the file
-# for example, to solve SUDOKUs 6,7 and 10, set SU_NUM_LIST = [6,7,10]
-SU_NUM_LIST = [1]
-# for case that all SUDOKUs in the file should be solved, set SOLVE_ALL = True
-# in this case, the list SU_NUM_LIST is ignored
-SOLVE_ALL = False
-
-from sudoku_io import sudoku_io
-
+# the main SUDOKU class
 class sudoku():
     """A class to represent a SUDOKU board and to solve it"""
 
@@ -40,7 +35,6 @@ class sudoku():
         self.numHiddenSinglesFoundinRow = 0
         self.numHiddenSinglesFoundinCol = 0
         self.numHiddenSinglesFoundinBlock = 0
-
 
     def __str__(self):
         """return the SUDOKU in a string format"""
@@ -91,32 +85,6 @@ class sudoku():
 
     def setComment(self,comment):
         self.comment = comment
-    
-    def removeNakedTwinsInCandidateList(self, cl):
-        """function to find same doubles in a candidate list cl"""
-        doubleList = []   # list to store all lists with 2 elements
-        listofElementsinSameDoubles_1 = []
-        clReturn = []
-        for elem in cl:
-            if len(elem) == 2:
-                doubleList.append(elem)
-        for elem in doubleList:
-            doubleListWithoutActualElem = doubleList.copy()
-            doubleListWithoutActualElem.remove(elem)
-            if elem in doubleListWithoutActualElem:
-                listofElementsinSameDoubles_1 += elem
-        listofElementsinSameDoubles = sorted(list(set(listofElementsinSameDoubles_1)))
-        # and now remove all elements from the candidate list that are in listofElementsinSameDoubles  
-        for list1 in cl:    # for each list in the list of lists:      
-            if len(list1) <= 2:   # don't change items that are 1 or 2 elements long
-                clReturn.append(list1)
-                continue   
-            myList = list1.copy()
-            for elem in list1:   # for each element in the list:
-                if elem in listofElementsinSameDoubles:   # remove the element if it is in listofElementsinSameDoubles
-                    myList.remove(elem)
-            clReturn.append(myList)
-        return clReturn 
 
     def getCandidates(self,row,col):
         """get all candidates at row col (elements not used in a row, column and box)"""
@@ -130,6 +98,25 @@ class sudoku():
         cl = list(candidates)
         cl.sort()
         return cl
+
+    def getAllCandidatesList(self):
+        """get all candidates for all empty cells"""
+        cl = []
+        for row in range(0,9):
+            for col in range(0,9):
+                if self.board[row][col] == 0:
+                    cl.append(candidate(row,col,self.getCandidates(row,col)))
+        return cl
+    
+    def getAllCandidatesList2(self):
+        cl = []
+        rowColList = []
+        for row in range(0,9):
+            for col in range(0,9):
+                if self.board[row][col] == 0:
+                    rowColList.append(candidate(row,col,self.getCandidates(row,col)))
+        cl.append(rowColList)
+        return cl  
     
     def getCountCandidates(self,candidates):
         count = {i:0 for i in range(1,10)}
@@ -239,44 +226,63 @@ class sudoku():
         for i in range(0,9):
             numEmpty += self.getRow(i).count(0)
         return numEmpty
-    
+
     def findUniqueCandidates(self):
         """find all unique candidates in the SUDOKU: returns the number of unique candidates found"""
         foundUniqueCandidate = False
-        for row in range(0,9):
-            for col in range(0,9):
-                if self.getElem(row,col) == 0:  # if element is empty
-                    if len(self.getCandidates(row,col)) == 1:
-                        if self.debugLevel>0:
-                            print(f"Unique candidate for ({row},{col}): {self.getCandidates(row,col)}")
-                        self.numUniqueCandidatesFound += 1
-                        foundUniqueCandidate = True
-                        self.setElem(row,col,list(self.getCandidates(row,col))[0])
-                        foundUniqueCandidate = True
+        allCandidates = self.getAllCandidatesList()
+        self.printAllCandidates(allCandidates)
+        for clist in allCandidates:
+            if len(clist.candidateList) == 1:
+                self.numUniqueCandidatesFound += 1
+                foundUniqueCandidate = True
+                self.setElem(clist.row,clist.col,clist.candidateList[0])
         return foundUniqueCandidate
 
-    def findUniqueCandidates2(self):
-        """find all unique candidates in the SUDOKU: returns the number of unique candidates found"""
-        foundUniqueCandidate = False
+    def printAllCandidates(self,allCandidates):
+        """print all candidates in the SUDOKU"""
+        if self.debugLevel>0:
+            print(f"List of all Candidates (unique ones that are used for solving are marked with ***):")
+            for c in allCandidates:
+                print(f"    {c}")
 
-        for row in range(0,9):
-            # create a candidate list for each row
-            candidates = []
-            for col in range(0,9):
-                if self.getElem(row,col) == 0:
-                    if len(self.getCandidates(row,col)) > 0:
-                        candidates.append(self.getCandidates(row,col))
-            if True:
-                print(f"candidates for row {row}: {candidates}")
-            for clist in candidates:
-                if len(clist) == 1:
-                    col = candidates.index(clist)
-                    if True:
-                        print(f"Unique candidate for ({row},{col}): {clist}")
-                    self.numUniqueCandidatesFound += 1
-                    foundUniqueCandidate = True
-                    self.setElem(row,col,clist[0])
-        return foundUniqueCandidate
+    def removeNakedTwinsInCandidateList(cl):
+        """function to find same doubles in a candidate list cl"""
+        def all2ItemsInList(listWith2Elements, listofElementsinSameDoubles):
+            """function to check if there are 2 elements in listWith2Elements and if these two elements are included in listofElementsinSameDoubles"""
+            if len(listWith2Elements) != 2:
+                return False
+            for elem in listWith2Elements:
+                if elem not in listofElementsinSameDoubles:
+                    return False
+            return True
+        doubleList = []          # list to store all lists with 2 elements
+        listofElementsinSameDoubles_1 = []
+        retCandidateList = []    # the return value: a list of candidates with removed elemenbts
+        for elem in cl:          # find all doubles and store elements of doubles in doubleList
+            candidates = list(elem.candidateList)
+            candidates.sort()
+            if len(candidates) == 2:
+                doubleList.append(candidates)
+        for elem in doubleList:  # now, for each element in doubleList, check if it is 2x in list. If yes, add it to listofElementsinSameDoubles
+            doubleListWithoutActualElem = doubleList.copy()
+            doubleListWithoutActualElem.remove(elem)
+            if elem in doubleListWithoutActualElem:
+                listofElementsinSameDoubles_1 += elem
+        listofElementsinSameDoubles = sorted(list(set(listofElementsinSameDoubles_1)))
+        print(f"listofElementsinSameDoubles: {listofElementsinSameDoubles}")
+        for myCandidate in cl:
+            # don't change items that are 1 elements long and items that are 2 long and in listofElementsinSameDoubles
+            if len(myCandidate.candidateList) == 1 or all2ItemsInList(myCandidate.candidateList, listofElementsinSameDoubles): 
+                retCandidateList.append(myCandidate)
+                continue
+            newCandidateList = myCandidate.candidateList.copy()
+            for elem in myCandidate.candidateList:
+                if elem in listofElementsinSameDoubles:
+                    newCandidateList.remove(elem)
+            myCandidate.candidateList = newCandidateList
+            retCandidateList.append(myCandidate)
+        return retCandidateList
 
     def solve(self):
         """solve the SUDOKU by finding unique candidates"""
@@ -291,13 +297,13 @@ class sudoku():
                 break
             if self.debugLevel>0:
                 print(f"Loop {i}:")
-            foundUniqueCandidate = self.findUniqueCandidates2()
+            foundUniqueCandidate = self.findUniqueCandidates()
             if not foundUniqueCandidate:
                 if self.findHiddenSingles()>0:
                     foundHiddenSingle = True         
             i += 1
             if (foundUniqueCandidate or foundHiddenSingle) and self.debugLevel>0:
-                print(s)
+                print(self.board)
         self.loopCount=i
 
     def printStatistics(self):
@@ -306,72 +312,8 @@ class sudoku():
         print(f"Number of unique candidates found: {self.numUniqueCandidatesFound}")
         print(f"Number of hidden singles found:  {self.numHiddenSinglesFoundinRow} in rows, {self.numHiddenSinglesFoundinCol} in columns, {self.numHiddenSinglesFoundinBlock} in blocks")
         print(f"Number of loops: {self.loopCount}")
-        if s.isSolved():
+        if self.isSolved():
             print("SUCCESS: SUDOKU is solved")
         else:
             print("FAIL: SUDOKU is not solved")
     # end of class: sudoku
-
-def getBoard(sudokuText):
-    """convert a SUDOKU in text form to a 9x9 list"""
-    if len(sudokuText) != 81:
-        print("Error: SUDOKU text has not the correct length")
-        return None
-    board = []
-    i=0
-    for row in range(0,9):
-        vector = []
-        for col in range(0,9):
-            if sudokuText[i] == ".":  # empty element is represented by a dot
-                vector.append(0)
-            else:
-                vector.append(int(sudokuText[i]))
-            i += 1
-        board.append(vector)
-    return board
-
-# ------------------------------------------------------------------------------------------------
-# main program
-# ------------------------------------------------------------------------------------------------
-if __name__ == "__main__":
-    suSolvedInfo = {}
-    # read the input file into arrays suText, suComment
-    myIo = sudoku_io()
-    print(f"... reading file name {SU_FILE_NAME}")
-    numRead = myIo.readFile(SU_FILE_NAME)
-    suTextList, suCommentList = myIo.getSudokuList()   
-    fNum=1
-    # loop over all SUDOKUs
-    for su in suTextList:
-        comment = suCommentList[fNum-1]
-        if SOLVE_ALL or (fNum in SU_NUM_LIST):
-            board =  getBoard(su)
-            # create a sudoku object
-            if board is None:
-                print(f"Error: SUDOKU {fNum} is not valid")
-                fNum += 1
-                continue
-            print(f"\n===== SUDOKU: {fNum} ({comment}) =====")
-            s = sudoku(board)
-            s.setDebugLevel(DEBUG_LEVEL)
-            print(s)   
-            # try to solve the SUDOKU
-            s.setComment(comment)
-            s.solve()
-            print(f"\n===== SUDOKU {fNum} ({comment}) after solving =====")
-            print(s)
-            s.printStatistics()
-            suSolvedInfo[fNum] = {"solved":s.isSolved(), "unique":s.numUniqueCandidatesFound, "hidden":s.numHiddenSinglesFound, "loops":s.loopCount, "comment":s.comment}
-        fNum += 1   
-
-    print("\n===== SUMMARY of all SUDOKUs =====")
-    for elem in suSolvedInfo:
-        print(f"SUDOKU {elem}: {suSolvedInfo[elem]['comment']}")
-        print(f"{'   ... SOLVED ' if suSolvedInfo[elem]['solved'] else '   ... NOT SOLVED '}",end="")
-        print(f"with {suSolvedInfo[elem]['unique']} unique candidates, ",end="")
-        if suSolvedInfo[elem]['hidden']>0:
-            print(f"{suSolvedInfo[elem]['hidden']} hidden singles, ",end="")
-        print(f"{suSolvedInfo[elem]['loops']} loops",end="")
-        print(" ")
-
-        
