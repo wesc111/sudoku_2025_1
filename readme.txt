@@ -10,3 +10,6 @@ git commit -m "first commit"
 # create mode 100644 sudoku.py
 # create mode 100644 sudoku_1.txt
 # create mode 100644 sudoku_io.py
+git branch -M main
+git push -u origin main
+git status
