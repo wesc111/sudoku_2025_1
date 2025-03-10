@@ -1,20 +1,15 @@
+
+
 """ class sudoku: this is a class to solve SUDOKU puzzles """
 
-VERSION = "0.1"
-VERSION_DATE = "18-Feb-2025"
+from candidate_p import candidate
+from candidate_p import candidateList
+import copy
 
-# a structure for candidates contain the row, col and the list of possible values
-class candidate:
-    def __init__(self, row, col, candidateList):
-        self.row = row
-        self.col = col
-        self.candidateList = candidateList
+# works with standard python lists, no specific need for any additional packages
 
-    def __str__(self):
-        if len(self.candidateList) == 1:
-            return f"{self.row},{self.col}: {self.candidateList}        ***"
-        else:
-            return f"{self.row},{self.col}: {self.candidateList}"
+VERSION = "0.2"
+VERSION_DATE = "10-Mar-2025"
 
 # the main SUDOKU class
 class sudoku():
@@ -22,19 +17,20 @@ class sudoku():
 
     # max loops for the solver (avoid endless loops)
     MAX_SOLVER_LOOPS = 100
+    # select removal of naked twins in candidate lists, should always be set to TRUE
+    REMOVE_NAKED_TWINS_IN_CANDIDATE_LIST = True
+
+    HIDDEN_PAIRS_ENABLED = True
 
     def __init__(self, board):
         """initialize the SUDOKU board"""
         self.board = board
-        self.numUniqueCandidatesFound = 0
-        self.numHiddenSinglesFound = 0
-        self.loopCount = 0
         self.debugLevel = 0
         self.comment = ""
         self.numEmptyCellsAtStart = self.getNumEmptyCells()
-        self.numHiddenSinglesFoundinRow = 0
-        self.numHiddenSinglesFoundinCol = 0
-        self.numHiddenSinglesFoundinBlock = 0
+        self.loopCount = 0
+        self.numUniqueCandidatesFound = 0
+        self.numHiddenSinglesFound = 0
 
     def __str__(self):
         """return the SUDOKU in a string format"""
@@ -54,15 +50,24 @@ class sudoku():
         myStr += f"+-------+-------+-------+"
         return myStr
     
-    def getRow(self,row):
+    def setDebugLevel(self, level):
+        """set the debug level 
+        (0 ... no additional printouts, 1 ... do debug printing, >1 ... reserved for future use)"""
+        self.debugLevel = level
+    def myPrint(self, str, end="\n"):
+        """internal print function used in class itself, does the print based on the debug level """
+        if self.debugLevel>0:
+            print(str,end=end)   
+    
+    def getRow(self, row):
         """return all elements of a row"""
         return self.board[row]
     
-    def getCol(self,col):
+    def getCol(self, col):
         """return all elements of a column"""
         return [self.board[i][col] for i in range(0,9)]
     
-    def getBox(self,row,col):
+    def getBox(self, row, col):
         """return all elements of a 3x3 box"""
         # do first a floor division, so that any element index in a box can be used to select the corresponding box
         rowi = (row // 3) * 3
@@ -77,145 +82,97 @@ class sudoku():
         """return the element at a given position"""
         return self.board[row][col]
     
-    def setElem(self,row,col,value):
+    def setElem(self, row, col, value):
+        """set the element at row, col to value"""
         self.board[row][col] = value
 
-    def setDebugLevel(self,level):
-        self.debugLevel = level
-
-    def setComment(self,comment):
+    def setComment(self, comment):
+        """set a comment (e.g. for easy identification of the actual SUDOKU) """
         self.comment = comment
 
-    def getCandidates(self,row,col):
+    def getCandidate(self, row, col):
         """get all candidates at row col (elements not used in a row, column and box)"""
         usedElements = set(self.getRow(row) + self.getCol(col) + self.getBox(row,col))
         if 0 in usedElements:
             usedElements = usedElements - {0}
         # candidates are the elements that are not used, so these are
         # the difference between the set of all elements and the set of used elements
-        candidates = set(range(1,10)) - usedElements
+        possibleValues = set(range(1,10)) - usedElements
         # create a sorted list of candidates as return value
-        cl = list(candidates)
+        cl = list(possibleValues)
         cl.sort()
-        return cl
+        retCandidate = candidate(row, col, cl)
+        return retCandidate
 
-    def getAllCandidatesList(self):
-        """get all candidates for all empty cells"""
-        cl = []
-        for row in range(0,9):
-            for col in range(0,9):
-                if self.board[row][col] == 0:
-                    cl.append(candidate(row,col,self.getCandidates(row,col)))
-        return cl
-    
-    def getAllCandidatesList2(self):
-        cl = []
-        rowColList = []
-        for row in range(0,9):
-            for col in range(0,9):
-                if self.board[row][col] == 0:
-                    rowColList.append(candidate(row,col,self.getCandidates(row,col)))
-        cl.append(rowColList)
-        return cl  
-    
-    def getCountCandidates(self,candidates):
-        count = {i:0 for i in range(1,10)}
-        for elemList in candidates:
-            for elem in elemList:
-                count[elem] += 1
-        return count
-    
-    def findHiddenSinglesInRow(self, row):
-        """check for hidden singles in a row"""
-        candidates = []
-        numHiddenSingles = 0
+    def getAllRowCandidates(self, row):
+        """get all candidates for all empty cells in a row"""
+        retCandidateList = None
         for col in range(0,9):
-            if self.getElem(row,col) == 0:
-                candidates.append(self.getCandidates(row,col))
-        if self.debugLevel>0:
-            print(f"candidates for row {row}: {candidates}")
-        # count each candidate
-        count = self.getCountCandidates(candidates)
-        # now check for hidden singles (count for a hidden single is 1)
-        for i in range(1,10):
-            if count[i] == 1: # hidden single found
-                numHiddenSingles += 1
-                for col in range(0,9):
-                    if self.getElem(row,col)==0 and (i in self.getCandidates(row,col)):  # if element is empty and candidate is in the list
-                        self.setElem(row,col,i)
-                        self.numHiddenSinglesFoundinRow +=1
-                        numHiddenSingles += 1
-                        if self.debugLevel>0:                           
-                            print(f"Hidden single found in row: row={row}, col={col} for elem {i}")
-        return numHiddenSingles
+            if self.board[row][col] == 0:
+                myCandidate = self.getCandidate(row,col)
+                if retCandidateList==None:
+                    retCandidateList=candidateList([myCandidate],f"CL row[{row}]")
+                else:
+                    retCandidateList.append(myCandidate)
+        if not self.HIDDEN_PAIRS_ENABLED or retCandidateList==None:
+            return retCandidateList
+        hiddenPairs = retCandidateList.findHiddenPairs()
+        if len(hiddenPairs)==0:
+            return retCandidateList
+        else:
+            retCandidateList2 = retCandidateList.reduceCandidateListForHiddenPairs(self.debugLevel)
+            self.myPrint(f"--> {retCandidateList}")
+            self.myPrint(f"--> {retCandidateList2}")
+            return retCandidateList2
     
-    def findHiddenSinglesInCol(self, col):
-        """check for hidden singles in a column"""
-        candidates = []
-        numHiddenSingles = 0
+    def getAllColCandidates(self, col):
+        """get all candidates for all empty cells in a col"""
+        retCandidateList = None
         for row in range(0,9):
-            if self.getElem(row,col) == 0:
-                candidates.append(self.getCandidates(row,col))
-        if self.debugLevel>0:
-            print(f"candidates for col {col}: {candidates}")
-        # count each candidate
-        count = self.getCountCandidates(candidates)
-        # now check for hidden singles (count for a hidden single is 1)
-        for i in range(1,10):
-            if count[i] == 1: # hidden single found
-                numHiddenSingles += 1
-                for row in range(0,9):
-                    if self.getElem(row,col)==0 and (i in self.getCandidates(row,col)):  # if element is empty and candidate is in the list
-                        self.setElem(row,col,i)
-                        self.numHiddenSinglesFoundinCol +=1
-                        numHiddenSingles += 1
-                        if self.debugLevel>0:
-                            print(f"Hidden single found in col: row={row}, col={col} for elem {i}")
-        return numHiddenSingles
-    
-    def findHiddenSinglesInBlock(self, block):
-        """check for hidden singles in a column"""
-        candidates = []
-        numHiddenSingles = 0
-        rowStart = (block // 3)*3
-        colStart = (block % 3)*3
-        for rd, cd in [(0,0),(0,1),(0,2),(1,0),(1,1),(1,2),(2,0),(2,1),(2,2)]:
-            row = rowStart + rd
-            col = colStart + cd
-            if self.getElem(row,col) == 0:
-                candidates.append(self.getCandidates(row,col))
-        if self.debugLevel>0:
-            print(f"candidates for block {block}: {candidates}")
-        # count each candidate
-        count = self.getCountCandidates(candidates)
-        # now check for hidden singles (count for a hidden single is 1)
-        for i in range(1,10):
-            if count[i] == 1: # hidden single found
-                for rd, cd in [(0,0),(0,1),(0,2),(1,0),(1,1),(1,2),(2,0),(2,1),(2,2)]:
-                    row = rowStart + rd
-                    col = colStart + cd
-                    if self.getElem(row,col)==0 and (i in self.getCandidates(row,col)):  # if element is empty and candidate is in the list
-                        self.setElem(row,col,i)
-                        self.numHiddenSinglesFoundinBlock +=1
-                        numHiddenSingles += 1
-                        if self.debugLevel>0:
-                            print(f"Hidden single found in block: block={block}, row={row}, col={col} for elem {i}")
-        return numHiddenSingles
+            if self.board[row][col] == 0:
+                myCandidate = self.getCandidate(row,col)
+                if retCandidateList==None:
+                    retCandidateList=candidateList([myCandidate],f"CL col[{col}]")
+                else:
+                    retCandidateList.append(myCandidate)
+        if not self.HIDDEN_PAIRS_ENABLED or retCandidateList==None:
+            return retCandidateList
+        hiddenPairs = retCandidateList.findHiddenPairs()
+        if len(hiddenPairs)==0:
+            return retCandidateList
+        else:
+            retCandidateList2 = retCandidateList.reduceCandidateListForHiddenPairs(self.debugLevel)
+            self.myPrint(f"--> {retCandidateList}")
+            self.myPrint(f"--> {retCandidateList2}")
+            return retCandidateList2
 
-    def findHiddenSingles(self):
-        """find all hidden singles in rows, cols and blocks: returns the number of hidden singles found"""
-        numHiddenSingles = 0
-        for i in range(0,9):
-            numHiddenSingles += self.findHiddenSinglesInRow(i)
-        for i in range(0,9):
-            numHiddenSingles += self.findHiddenSinglesInCol(i)
-        for i in range(0,9):
-            numHiddenSingles += self.findHiddenSinglesInBlock(i)
-        return numHiddenSingles
+    def getAllBoxCandidates(self, box):
+        """get all candidates for all empty cells in a box"""
+        boxRC=[[0,0],[0,3],[0,6],[3,0],[3,3],[3,6],[6,0],[6,3],[6,6]]
+        retCandidateList = None
+        rowi, coli = boxRC[box]
+        for row in range(rowi,rowi+3):
+            for col in range(coli,coli+3):               
+                if self.board[row][col] == 0:
+                    myCandidate = self.getCandidate(row,col)
+                    if retCandidateList==None:
+                        retCandidateList=candidateList([myCandidate],f"CL box[{box}]")
+                    else:
+                        retCandidateList.append(myCandidate)    
+        if not self.HIDDEN_PAIRS_ENABLED or retCandidateList==None:
+            return retCandidateList
+        hiddenPairs = retCandidateList.findHiddenPairs()
+        if len(hiddenPairs)==0:
+            return retCandidateList
+        else:
+            retCandidateList2 = retCandidateList.reduceCandidateListForHiddenPairs(self.debugLevel)
+            self.myPrint(f"--> {retCandidateList}")
+            self.myPrint(f"--> {retCandidateList2}")
+            return retCandidateList2
 
     def isSolved(self):
         """check if the SUDOKU is solved"""
-        for i in range(0,9):    # check that there are no empty cells in all rows
+        for i in range(0,9):    # check that there are no empty cells in the board
             if 0 in self.getRow(i):
                 return False
         return True
@@ -227,93 +184,66 @@ class sudoku():
             numEmpty += self.getRow(i).count(0)
         return numEmpty
 
-    def findUniqueCandidates(self):
-        """find all unique candidates in the SUDOKU: returns the number of unique candidates found"""
-        foundUniqueCandidate = False
-        allCandidates = self.getAllCandidatesList()
-        self.printAllCandidates(allCandidates)
-        for clist in allCandidates:
-            if len(clist.candidateList) == 1:
-                self.numUniqueCandidatesFound += 1
-                foundUniqueCandidate = True
-                self.setElem(clist.row,clist.col,clist.candidateList[0])
-        return foundUniqueCandidate
+    def printAllCandidates(self):
+        """print candidates for the overall sudoku (for all rows)"""
+        for row in range(0,9):
+            rowCandidateList = self.getAllRowCandidates(row)
+            print(rowCandidateList)
+            numSingles, rowSingles = rowCandidateList.getSingles()
+            if numSingles>0:
+                for single in rowSingles:
+                    print(f"Found Single: {single}")
+            numHiddenSingles, aHiddenSingles = rowCandidateList.getHiddenSingles()
+            if numHiddenSingles>0:
+                for hiddenSingle in aHiddenSingles:
+                    print(f"Found hidden Single: {hiddenSingle}")
 
-    def printAllCandidates(self,allCandidates):
-        """print all candidates in the SUDOKU"""
-        if self.debugLevel>0:
-            print(f"List of all Candidates (unique ones that are used for solving are marked with ***):")
-            for c in allCandidates:
-                print(f"    {c}")
-
-    def removeNakedTwinsInCandidateList(cl):
-        """function to find same doubles in a candidate list cl"""
-        def all2ItemsInList(listWith2Elements, listofElementsinSameDoubles):
-            """function to check if there are 2 elements in listWith2Elements and if these two elements are included in listofElementsinSameDoubles"""
-            if len(listWith2Elements) != 2:
-                return False
-            for elem in listWith2Elements:
-                if elem not in listofElementsinSameDoubles:
-                    return False
-            return True
-        doubleList = []          # list to store all lists with 2 elements
-        listofElementsinSameDoubles_1 = []
-        retCandidateList = []    # the return value: a list of candidates with removed elemenbts
-        for elem in cl:          # find all doubles and store elements of doubles in doubleList
-            candidates = list(elem.candidateList)
-            candidates.sort()
-            if len(candidates) == 2:
-                doubleList.append(candidates)
-        for elem in doubleList:  # now, for each element in doubleList, check if it is 2x in list. If yes, add it to listofElementsinSameDoubles
-            doubleListWithoutActualElem = doubleList.copy()
-            doubleListWithoutActualElem.remove(elem)
-            if elem in doubleListWithoutActualElem:
-                listofElementsinSameDoubles_1 += elem
-        listofElementsinSameDoubles = sorted(list(set(listofElementsinSameDoubles_1)))
-        print(f"listofElementsinSameDoubles: {listofElementsinSameDoubles}")
-        for myCandidate in cl:
-            # don't change items that are 1 elements long and items that are 2 long and in listofElementsinSameDoubles
-            if len(myCandidate.candidateList) == 1 or all2ItemsInList(myCandidate.candidateList, listofElementsinSameDoubles): 
-                retCandidateList.append(myCandidate)
-                continue
-            newCandidateList = myCandidate.candidateList.copy()
-            for elem in myCandidate.candidateList:
-                if elem in listofElementsinSameDoubles:
-                    newCandidateList.remove(elem)
-            myCandidate.candidateList = newCandidateList
-            retCandidateList.append(myCandidate)
-        return retCandidateList
+    def solvePrintHeader(self, type):
+        if type==0:
+            self.myPrint(f"== starting solver based on row Candidates")
+        elif type==1:
+            self.myPrint(f"== starting solver based on col Candidates")
+        elif type==2:
+            self.myPrint(f"== starting solver based on box Candidates")
 
     def solve(self):
-        """solve the SUDOKU by finding unique candidates"""
-        foundUniqueCandidate = True
-        foundHiddenSingle = True
+        """print candidates for the overall sudoku (for all rows)"""
+        foundNewCandidate = True
         i = 0
-        while foundUniqueCandidate or foundHiddenSingle:
-            foundUniqueCandidate = False
-            foundHiddenSingle = False
-            if self.isSolved() or i > self.MAX_SOLVER_LOOPS:
-                self.loopCount=i
-                break
-            if self.debugLevel>0:
-                print(f"Loop {i}:")
-            foundUniqueCandidate = self.findUniqueCandidates()
-            if not foundUniqueCandidate:
-                if self.findHiddenSingles()>0:
-                    foundHiddenSingle = True         
+        while foundNewCandidate:
+            foundNewCandidate = False
+            self.loopCount = i
+            if self.isSolved():                 return True
+            elif i > self.MAX_SOLVER_LOOPS:     return False                
+            self.myPrint(f"===== Loop {i}:")
+            for type in range(0,3):   # loop to run algo on row, col and box candidate lists
+                self.solvePrintHeader(type)
+                for n in range(0,9):
+                    if   type==0:   aCandidateList = self.getAllRowCandidates(n)
+                    elif type==1:   aCandidateList = self.getAllColCandidates(n)
+                    elif type==2:   aCandidateList = self.getAllBoxCandidates(n)
+                    if aCandidateList != None:
+                        self.myPrint(aCandidateList)
+                        numSingles, aSinges = aCandidateList.getSingles()
+                        if numSingles>0:
+                            for single in aSinges:
+                                self.myPrint(f"... found single: {single}")
+                                self.setElem(single.row,single.col,single.possibleValueList[0])
+                                self.numUniqueCandidatesFound += 1
+                                foundNewCandidate = True                        
+                        numHiddenSingles, aHiddenSingles = aCandidateList.getHiddenSingles()
+                        if numHiddenSingles>0:
+                            for hiddenSingle in aHiddenSingles:
+                                self.myPrint(f"... found hidden single: {hiddenSingle}")
+                                self.setElem(hiddenSingle.row,hiddenSingle.col,hiddenSingle.possibleValueList[0])
+                                self.numHiddenSinglesFound += 1
+                                foundNewCandidate = True
             i += 1
-            if (foundUniqueCandidate or foundHiddenSingle) and self.debugLevel>0:
-                print(self.board)
-        self.loopCount=i
+        return False
 
     def printStatistics(self):
-        """print statistics of the solution"""
-        print(f"Number of empty cells in SUDOKU (at start): {self.numEmptyCellsAtStart}")
-        print(f"Number of unique candidates found: {self.numUniqueCandidatesFound}")
-        print(f"Number of hidden singles found:  {self.numHiddenSinglesFoundinRow} in rows, {self.numHiddenSinglesFoundinCol} in columns, {self.numHiddenSinglesFoundinBlock} in blocks")
-        print(f"Number of loops: {self.loopCount}")
-        if self.isSolved():
-            print("SUCCESS: SUDOKU is solved")
-        else:
-            print("FAIL: SUDOKU is not solved")
+        # TBD WSC
+        return False
+    
+
     # end of class: sudoku
