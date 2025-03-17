@@ -1,4 +1,4 @@
-#Sudoku#
+#Sudoku
 
 A basic class library to solve sudokus with an example solver
 
