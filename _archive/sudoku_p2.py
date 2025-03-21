@@ -5,12 +5,11 @@
 from candidate_p import candidate
 from candidate_p import candidateList
 import copy
-import random
 
 # works with standard python lists, no specific need for any additional packages
 
-VERSION = "0.21"
-VERSION_DATE = "13-Mar-2025"
+VERSION = "0.1"
+VERSION_DATE = "2-Mar-2025"
 
 # the main SUDOKU class
 class sudoku():
@@ -21,20 +20,14 @@ class sudoku():
     # select removal of naked twins in candidate lists, should always be set to TRUE
     REMOVE_NAKED_TWINS_IN_CANDIDATE_LIST = True
 
-    FIND_HIDDEN_PAIRS_ENABLED = True
-    FIND_PAIRS_ENABLED = True
-    FIND_TRIPPLES_ENABLED = True
-
-    MAX_NUM_RAND_TRIALS = 400
+    HIDDEN_PAIRS_ENABLED = True
 
     def __init__(self, board):
         """initialize the SUDOKU board"""
         self.board = board
-        self.stoBoard = board
         self.debugLevel = 0
         self.comment = ""
         self.numEmptyCellsAtStart = self.getNumEmptyCells()
-        self.randCount = 0
         self.loopCount = 0
         self.numUniqueCandidatesFound = 0
         self.numHiddenSinglesFound = 0
@@ -99,10 +92,7 @@ class sudoku():
 
     def getCandidate(self, row, col):
         """get all candidates at row col (elements not used in a row, column and box)"""
-        try:
-            usedElements = set(self.getRow(row) + self.getCol(col) + self.getBox(row,col))
-        except:
-            return None
+        usedElements = set(self.getRow(row) + self.getCol(col) + self.getBox(row,col))
         if 0 in usedElements:
             usedElements = usedElements - {0}
         # candidates are the elements that are not used, so these are
@@ -114,64 +104,47 @@ class sudoku():
         retCandidate = candidate(row, col, cl)
         return retCandidate
 
-    def reduceCandidateList(self, inCandidateList):
-        """  function to reduce candidate list by algorithms for doubles, tripples, hidden doubles
-             used by getAllRowCandidates(), getAllColCandidates(), getAllBoxCandidates()       
-        """
-        if inCandidateList==None:                  # nothing to do, there are no candidates here
-            return inCandidateList
-        hiddenPairs = inCandidateList.findHiddenPairs()
-        pairs = inCandidateList.findPairs()
-        if len(hiddenPairs)==0 and pairs==None:   # nothing to do, no pairs or hidden pairs, return immediately
-            return inCandidateList
-        else:
-            if self.FIND_HIDDEN_PAIRS_ENABLED:
-                retCandidateList1 = inCandidateList.reduceCandidateListForHiddenPairs(self.debugLevel)
-            else:
-                retCandidateList1 = inCandidateList
-            if self.FIND_PAIRS_ENABLED:
-                retCandidateList2 = retCandidateList1.reduceCandidateListBesidePairs(self.debugLevel)
-            else:
-                retCandidateList2 = retCandidateList1
-            if self.FIND_TRIPPLES_ENABLED:
-                retCandidateList3  = retCandidateList2.reduceCandidateListBesideTripples(self.debugLevel)
-            else:
-                retCandidateList3 = retCandidateList2
-            self.myPrint(f"--> {inCandidateList}")
-            self.myPrint(f"--> {retCandidateList3}")
-            return retCandidateList3
-        
     def getAllRowCandidates(self, row):
         """get all candidates for all empty cells in a row"""
         retCandidateList = None
         for col in range(0,9):
             if self.board[row][col] == 0:
-                try:
-                    myCandidate = self.getCandidate(row,col)
-                except:
-                    myCandidate = None
+                myCandidate = self.getCandidate(row,col)
                 if retCandidateList==None:
                     retCandidateList=candidateList([myCandidate],f"CL row[{row}]")
-                elif myCandidate!=None:
+                else:
                     retCandidateList.append(myCandidate)
-        rtv = self.reduceCandidateList(retCandidateList)
-        return rtv
+        if not self.HIDDEN_PAIRS_ENABLED or retCandidateList==None:
+            return retCandidateList
+        hiddenPairs = retCandidateList.findHiddenPairs()
+        if len(hiddenPairs)==0:
+            return retCandidateList
+        else:
+            retCandidateList2 = retCandidateList.reduceCandidateListForHiddenPairs(self.debugLevel)
+            self.myPrint(f"--> {retCandidateList}")
+            self.myPrint(f"--> {retCandidateList2}")
+            return retCandidateList2
     
     def getAllColCandidates(self, col):
         """get all candidates for all empty cells in a col"""
         retCandidateList = None
         for row in range(0,9):
             if self.board[row][col] == 0:
-                try:
-                    myCandidate = self.getCandidate(row,col)
-                except:
-                    myCandidate = None
+                myCandidate = self.getCandidate(row,col)
                 if retCandidateList==None:
                     retCandidateList=candidateList([myCandidate],f"CL col[{col}]")
-                elif myCandidate!=None:
+                else:
                     retCandidateList.append(myCandidate)
-        rtv = self.reduceCandidateList(retCandidateList)
-        return rtv
+        if not self.HIDDEN_PAIRS_ENABLED or retCandidateList==None:
+            return retCandidateList
+        hiddenPairs = retCandidateList.findHiddenPairs()
+        if len(hiddenPairs)==0:
+            return retCandidateList
+        else:
+            retCandidateList2 = retCandidateList.reduceCandidateListForHiddenPairs(self.debugLevel)
+            self.myPrint(f"--> {retCandidateList}")
+            self.myPrint(f"--> {retCandidateList2}")
+            return retCandidateList2
 
     def getAllBoxCandidates(self, box):
         """get all candidates for all empty cells in a box"""
@@ -181,27 +154,21 @@ class sudoku():
         for row in range(rowi,rowi+3):
             for col in range(coli,coli+3):               
                 if self.board[row][col] == 0:
-                    try:
-                        myCandidate = self.getCandidate(row,col)
-                    except:
-                        myCandidate = None
+                    myCandidate = self.getCandidate(row,col)
                     if retCandidateList==None:
                         retCandidateList=candidateList([myCandidate],f"CL box[{box}]")
-                    elif myCandidate!=None:
+                    else:
                         retCandidateList.append(myCandidate)    
-        rtv = self.reduceCandidateList(retCandidateList)
-        return rtv
-    
-    def getAllPairCandidates(self):
-        pairList=[]
-        for row in range(0,9):
-            cl = self.getAllRowCandidates(row)
-            if cl!=None:
-                for elem in cl.candidateList:
-                    pvl = elem.possibleValueList
-                    if len(pvl)==2:
-                        pairList.append(elem)
-        return pairList
+        if not self.HIDDEN_PAIRS_ENABLED or retCandidateList==None:
+            return retCandidateList
+        hiddenPairs = retCandidateList.findHiddenPairs()
+        if len(hiddenPairs)==0:
+            return retCandidateList
+        else:
+            retCandidateList2 = retCandidateList.reduceCandidateListForHiddenPairs(self.debugLevel)
+            self.myPrint(f"--> {retCandidateList}")
+            self.myPrint(f"--> {retCandidateList2}")
+            return retCandidateList2
 
     def isSolved(self):
         """check if the SUDOKU is solved"""
@@ -240,7 +207,7 @@ class sudoku():
             self.myPrint(f"== starting solver based on box Candidates")
 
     def solve(self):
-        """solve SUDOKU """
+        """print candidates for the overall sudoku (for all rows)"""
         foundNewCandidate = True
         i = 0
         while foundNewCandidate:
@@ -273,61 +240,10 @@ class sudoku():
                                 foundNewCandidate = True
             i += 1
         return False
-    
-    def storeBoard(self):
-        """STORE the actual board in stoBoard"""
-        for elem in self.board:
-            self.stoBoard = copy.deepcopy(self.board)
-
-    def recallBoard(self):
-        """RECALL the actual board from stoBoard"""
-        for elem in self.board:
-            self.board = copy.deepcopy(self.stoBoard)
-
-    def solveRand(self):
-        """solve SUDOKU, in case that no analytic solution is found start randomized trials"""
-        if self.solve():
-            return True
-        else:
-            print("... no analytic solution found, randomized trials will start here")
-            self.storeBoard()
-            stored_loopCount = self.loopCount
-            stored_numUniqueCandidatesFound = self.numUniqueCandidatesFound
-            stored_numHiddenSinglesFound = self.numHiddenSinglesFound
-            pairList = self.getAllPairCandidates()
-            for i in range(0,self.MAX_NUM_RAND_TRIALS):
-                self.randCount += 1
-                randPairList =copy.deepcopy(pairList)
-                self.myPrint(f"... found {len(pairList)} pairs")
-                randPairFlag = []
-                # for each pair, generate a rand flag that determines if this element is randomized
-                for i, pair in enumerate(pairList):
-                    randPairFlag.append(random.randint(0,1))
-                # do the randomization and print the randomization
-                for i, elem in enumerate(randPairList):
-                    if randPairFlag[i]==1:
-                        if random.randint(0,1)==1:
-                            pvlValue = elem.possibleValueList[1]
-                        else:
-                            pvlValue = elem.possibleValueList[0]
-                        elem.possibleValueList = [pvlValue]
-                        self.myPrint(f"{pairList[i]} -> set to {randPairList[i]}")
-                # now set the randomized elements
-                for i, elem in  enumerate(randPairList):
-                    if randPairFlag[i]==1:
-                        self.setElem(elem.row, elem.col, elem.possibleValueList[0])
-                if self.solve():
-                    return True
-                # randomization failed here, restore board and statistics before trying the next randomization inside the loop
-                self.recallBoard()
-                self.loopCount = stored_loopCount
-                self.numUniqueCandidatesFound = stored_numUniqueCandidatesFound
-                self.numHiddenSinglesFound = stored_numHiddenSinglesFound
-
-            return False
 
     def printStatistics(self):
         # TBD WSC
-        return False  
+        return False
+    
 
     # end of class: sudoku

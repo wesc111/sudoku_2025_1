@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>sudoku_p &#8212; Sudoku 0.0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=d45e8c67"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for sudoku_p</h1><div class="highlight"><pre>
+<span></span>
+
+<span class="sd">&quot;&quot;&quot; class sudoku: this is a class to solve SUDOKU puzzles &quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">candidate_p</span><span class="w"> </span><span class="kn">import</span> <span class="n">candidate</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">candidate_p</span><span class="w"> </span><span class="kn">import</span> <span class="n">candidateList</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">random</span>
+
+<span class="c1"># works with standard python lists, no specific need for any additional packages</span>
+
+<span class="n">VERSION</span> <span class="o">=</span> <span class="s2">&quot;0.21&quot;</span>
+<span class="n">VERSION_DATE</span> <span class="o">=</span> <span class="s2">&quot;13-Mar-2025&quot;</span>
+
+<span class="c1"># the main SUDOKU class</span>
+<div class="viewcode-block" id="sudoku">
+<a class="viewcode-back" href="../sudoku_p.html#sudoku_p.sudoku">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">sudoku</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A class to represent a SUDOKU board and to solve it&quot;&quot;&quot;</span>
+
+    <span class="c1"># max loops for the solver (avoid endless loops)</span>
+    <span class="n">MAX_SOLVER_LOOPS</span> <span class="o">=</span> <span class="mi">100</span>
+    <span class="c1"># select removal of naked twins in candidate lists, should always be set to TRUE</span>
+    <span class="n">REMOVE_NAKED_TWINS_IN_CANDIDATE_LIST</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="n">FIND_HIDDEN_PAIRS_ENABLED</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">FIND_PAIRS_ENABLED</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">FIND_TRIPPLES_ENABLED</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="n">MAX_NUM_RAND_TRIALS</span> <span class="o">=</span> <span class="mi">400</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">board</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;initialize the SUDOKU board&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">board</span> <span class="o">=</span> <span class="n">board</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stoBoard</span> <span class="o">=</span> <span class="n">board</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debugLevel</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">comment</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">numEmptyCellsAtStart</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNumEmptyCells</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">randCount</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">loopCount</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">numUniqueCandidatesFound</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">numHiddenSinglesFound</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;return the SUDOKU in a string format&quot;&quot;&quot;</span>
+        <span class="n">myStr</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">9</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">3</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">myStr</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;+-------+-------+-------+</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="c1"># print a line of the SUDOKU</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">9</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">j</span> <span class="o">%</span> <span class="mi">3</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">myStr</span> <span class="o">+=</span> <span class="s2">&quot;| &quot;</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">myStr</span> <span class="o">+=</span> <span class="s2">&quot;. &quot;</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">myStr</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span><span class="si">}</span><span class="s2"> &quot;</span>
+            <span class="n">myStr</span> <span class="o">+=</span> <span class="s2">&quot;|</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="n">myStr</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;+-------+-------+-------+&quot;</span>
+        <span class="k">return</span> <span class="n">myStr</span>
+    
+<div class="viewcode-block" id="sudoku.setDebugLevel">
+<a class="viewcode-back" href="../sudoku_p.html#sudoku_p.sudoku.setDebugLevel">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">setDebugLevel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">level</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;set the debug level </span>
+<span class="sd">        (0 ... no additional printouts, 1 ... do debug printing, &gt;1 ... reserved for future use)&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debugLevel</span> <span class="o">=</span> <span class="n">level</span></div>
+
+<div class="viewcode-block" id="sudoku.myPrint">
+<a class="viewcode-back" href="../sudoku_p.html#sudoku_p.sudoku.myPrint">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">myPrint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;internal print function used in class itself, does the print based on the debug level &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">debugLevel</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span><span class="n">end</span><span class="o">=</span><span class="n">end</span><span class="p">)</span>   </div>
+
+    
+<div class="viewcode-block" id="sudoku.getRow">
+<a class="viewcode-back" href="../sudoku_p.html#sudoku_p.sudoku.getRow">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">getRow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">row</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;return all elements of a row&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="p">[</span><span class="n">row</span><span class="p">]</span></div>
+
+    
+<div class="viewcode-block" id="sudoku.getCol">
+<a class="viewcode-back" href="../sudoku_p.html#sudoku_p.sudoku.getCol">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">getCol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">col</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;return all elements of a column&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">col</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">9</span><span class="p">)]</span></div>
+
+    
+<div class="viewcode-block" id="sudoku.getBox">
+<a class="viewcode-back" href="../sudoku_p.html#sudoku_p.sudoku.getBox">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">getBox</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;return all elements of a 3x3 box&quot;&quot;&quot;</span>
+        <span class="c1"># do first a floor division, so that any element index in a box can be used to select the corresponding box</span>
+        <span class="n">rowi</span> <span class="o">=</span> <span class="p">(</span><span class="n">row</span> <span class="o">//</span> <span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="mi">3</span>
+        <span class="n">coli</span> <span class="o">=</span> <span class="p">(</span><span class="n">col</span> <span class="o">//</span> <span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="mi">3</span>
+        <span class="n">box</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">rowi</span><span class="p">,</span><span class="n">rowi</span><span class="o">+</span><span class="mi">3</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">coli</span><span class="p">,</span><span class="n">coli</span><span class="o">+</span><span class="mi">3</span><span class="p">):</span>
+                <span class="n">box</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">box</span></div>
+
+    
+<div class="viewcode-block" id="sudoku.getElem">
+<a class="viewcode-back" href="../sudoku_p.html#sudoku_p.sudoku.getElem">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">getElem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">row</span><span class="p">,</span><span class="n">col</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;return the element at a given position&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="p">[</span><span class="n">row</span><span class="p">][</span><span class="n">col</span><span class="p">]</span></div>
+
+    
+<div class="viewcode-block" id="sudoku.setElem">
+<a class="viewcode-back" href="../sudoku_p.html#sudoku_p.sudoku.setElem">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">setElem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;set the element at row, col to value&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="p">[</span><span class="n">row</span><span class="p">][</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span></div>
+
+
+<div class="viewcode-block" id="sudoku.setComment">
+<a class="viewcode-back" href="../sudoku_p.html#sudoku_p.sudoku.setComment">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">setComment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">comment</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;set a comment (e.g. for easy identification of the actual SUDOKU) &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">comment</span> <span class="o">=</span> <span class="n">comment</span></div>
+
+
+<div class="viewcode-block" id="sudoku.getCandidate">
+<a class="viewcode-back" href="../sudoku_p.html#sudoku_p.sudoku.getCandidate">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">getCandidate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;get all candidates at row col (elements not used in a row, column and box)&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">usedElements</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getRow</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCol</span><span class="p">(</span><span class="n">col</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">getBox</span><span class="p">(</span><span class="n">row</span><span class="p">,</span><span class="n">col</span><span class="p">))</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="mi">0</span> <span class="ow">in</span> <span class="n">usedElements</span><span class="p">:</span>
+            <span class="n">usedElements</span> <span class="o">=</span> <span class="n">usedElements</span> <span class="o">-</span> <span class="p">{</span><span class="mi">0</span><span class="p">}</span>
+        <span class="c1"># candidates are the elements that are not used, so these are</span>
+        <span class="c1"># the difference between the set of all elements and the set of used elements</span>
+        <span class="n">possibleValues</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">10</span><span class="p">))</span> <span class="o">-</span> <span class="n">usedElements</span>
+        <span class="c1"># create a sorted list of candidates as return value</span>
+        <span class="n">cl</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">possibleValues</span><span class="p">)</span>
+        <span class="n">cl</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
+        <span class="n">retCandidate</span> <span class="o">=</span> <span class="n">candidate</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="n">cl</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">retCandidate</span></div>
+
+
+<div class="viewcode-block" id="sudoku.reduceCandidateList">
+<a class="viewcode-back" href="../sudoku_p.html#sudoku_p.sudoku.reduceCandidateList">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">reduceCandidateList</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inCandidateList</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;  function to reduce candidate list by algorithms for doubles, tripples, hidden doubles</span>
+<span class="sd">             used by getAllRowCandidates(), getAllColCandidates(), getAllBoxCandidates()       </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">inCandidateList</span><span class="o">==</span><span class="kc">None</span><span class="p">:</span>                  <span class="c1"># nothing to do, there are no candidates here</span>
+            <span class="k">return</span> <span class="n">inCandidateList</span>
+        <span class="n">hiddenPairs</span> <span class="o">=</span> <span class="n">inCandidateList</span><span class="o">.</span><span class="n">findHiddenPairs</span><span class="p">()</span>
+        <span class="n">pairs</span> <span class="o">=</span> <span class="n">inCandidateList</span><span class="o">.</span><span class="n">findPairs</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">hiddenPairs</span><span class="p">)</span><span class="o">==</span><span class="mi">0</span> <span class="ow">and</span> <span class="n">pairs</span><span class="o">==</span><span class="kc">None</span><span class="p">:</span>   <span class="c1"># nothing to do, no pairs or hidden pairs, return immediately</span>
+            <span class="k">return</span> <span class="n">inCandidateList</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">FIND_HIDDEN_PAIRS_ENABLED</span><span class="p">:</span>
+                <span class="n">retCandidateList1</span> <span class="o">=</span> <span class="n">inCandidateList</span><span class="o">.</span><span class="n">reduceCandidateListForHiddenPairs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">debugLevel</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">retCandidateList1</span> <span class="o">=</span> <span class="n">inCandidateList</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">FIND_PAIRS_ENABLED</span><span class="p">:</span>
+                <span class="n">retCandidateList2</span> <span class="o">=</span> <span class="n">retCandidateList1</span><span class="o">.</span><span class="n">reduceCandidateListBesidePairs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">debugLevel</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">retCandidateList2</span> <span class="o">=</span> <span class="n">retCandidateList1</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">FIND_TRIPPLES_ENABLED</span><span class="p">:</span>
+                <span class="n">retCandidateList3</span>  <span class="o">=</span> <span class="n">retCandidateList2</span><span class="o">.</span><span class="n">reduceCandidateListBesideTripples</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">debugLevel</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">retCandidateList3</span> <span class="o">=</span> <span class="n">retCandidateList2</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">myPrint</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;--&gt; </span><span class="si">{</span><span class="n">inCandidateList</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">myPrint</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;--&gt; </span><span class="si">{</span><span class="n">retCandidateList3</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">retCandidateList3</span></div>
+
+        
+<div class="viewcode-block" id="sudoku.getAllRowCandidates">
+<a class="viewcode-back" href="../sudoku_p.html#sudoku_p.sudoku.getAllRowCandidates">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">getAllRowCandidates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">row</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;get all candidates for all empty cells in a row&quot;&quot;&quot;</span>
+        <span class="n">retCandidateList</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">9</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="p">[</span><span class="n">row</span><span class="p">][</span><span class="n">col</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">myCandidate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCandidate</span><span class="p">(</span><span class="n">row</span><span class="p">,</span><span class="n">col</span><span class="p">)</span>
+                <span class="k">except</span><span class="p">:</span>
+                    <span class="n">myCandidate</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="k">if</span> <span class="n">retCandidateList</span><span class="o">==</span><span class="kc">None</span><span class="p">:</span>
+                    <span class="n">retCandidateList</span><span class="o">=</span><span class="n">candidateList</span><span class="p">([</span><span class="n">myCandidate</span><span class="p">],</span><span class="sa">f</span><span class="s2">&quot;CL row[</span><span class="si">{</span><span class="n">row</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">myCandidate</span><span class="o">!=</span><span class="kc">None</span><span class="p">:</span>
+                    <span class="n">retCandidateList</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">myCandidate</span><span class="p">)</span>
+        <span class="n">rtv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduceCandidateList</span><span class="p">(</span><span class="n">retCandidateList</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">rtv</span></div>
+
+    
+<div class="viewcode-block" id="sudoku.getAllColCandidates">
+<a class="viewcode-back" href="../sudoku_p.html#sudoku_p.sudoku.getAllColCandidates">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">getAllColCandidates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">col</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;get all candidates for all empty cells in a col&quot;&quot;&quot;</span>
+        <span class="n">retCandidateList</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">9</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="p">[</span><span class="n">row</span><span class="p">][</span><span class="n">col</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">myCandidate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCandidate</span><span class="p">(</span><span class="n">row</span><span class="p">,</span><span class="n">col</span><span class="p">)</span>
+                <span class="k">except</span><span class="p">:</span>
+                    <span class="n">myCandidate</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="k">if</span> <span class="n">retCandidateList</span><span class="o">==</span><span class="kc">None</span><span class="p">:</span>
+                    <span class="n">retCandidateList</span><span class="o">=</span><span class="n">candidateList</span><span class="p">([</span><span class="n">myCandidate</span><span class="p">],</span><span class="sa">f</span><span class="s2">&quot;CL col[</span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">myCandidate</span><span class="o">!=</span><span class="kc">None</span><span class="p">:</span>
+                    <span class="n">retCandidateList</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">myCandidate</span><span class="p">)</span>
+        <span class="n">rtv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduceCandidateList</span><span class="p">(</span><span class="n">retCandidateList</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">rtv</span></div>
+
+
+<div class="viewcode-block" id="sudoku.getAllBoxCandidates">
+<a class="viewcode-back" href="../sudoku_p.html#sudoku_p.sudoku.getAllBoxCandidates">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">getAllBoxCandidates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">box</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;get all candidates for all empty cells in a box&quot;&quot;&quot;</span>
+        <span class="n">boxRC</span><span class="o">=</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">],[</span><span class="mi">0</span><span class="p">,</span><span class="mi">3</span><span class="p">],[</span><span class="mi">0</span><span class="p">,</span><span class="mi">6</span><span class="p">],[</span><span class="mi">3</span><span class="p">,</span><span class="mi">0</span><span class="p">],[</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">],[</span><span class="mi">3</span><span class="p">,</span><span class="mi">6</span><span class="p">],[</span><span class="mi">6</span><span class="p">,</span><span class="mi">0</span><span class="p">],[</span><span class="mi">6</span><span class="p">,</span><span class="mi">3</span><span class="p">],[</span><span class="mi">6</span><span class="p">,</span><span class="mi">6</span><span class="p">]]</span>
+        <span class="n">retCandidateList</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">rowi</span><span class="p">,</span> <span class="n">coli</span> <span class="o">=</span> <span class="n">boxRC</span><span class="p">[</span><span class="n">box</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">rowi</span><span class="p">,</span><span class="n">rowi</span><span class="o">+</span><span class="mi">3</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">coli</span><span class="p">,</span><span class="n">coli</span><span class="o">+</span><span class="mi">3</span><span class="p">):</span>               
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="p">[</span><span class="n">row</span><span class="p">][</span><span class="n">col</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">myCandidate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCandidate</span><span class="p">(</span><span class="n">row</span><span class="p">,</span><span class="n">col</span><span class="p">)</span>
+                    <span class="k">except</span><span class="p">:</span>
+                        <span class="n">myCandidate</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="k">if</span> <span class="n">retCandidateList</span><span class="o">==</span><span class="kc">None</span><span class="p">:</span>
+                        <span class="n">retCandidateList</span><span class="o">=</span><span class="n">candidateList</span><span class="p">([</span><span class="n">myCandidate</span><span class="p">],</span><span class="sa">f</span><span class="s2">&quot;CL box[</span><span class="si">{</span><span class="n">box</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
+                    <span class="k">elif</span> <span class="n">myCandidate</span><span class="o">!=</span><span class="kc">None</span><span class="p">:</span>
+                        <span class="n">retCandidateList</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">myCandidate</span><span class="p">)</span>    
+        <span class="n">rtv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduceCandidateList</span><span class="p">(</span><span class="n">retCandidateList</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">rtv</span></div>
+
+    
+<div class="viewcode-block" id="sudoku.getAllPairCandidates">
+<a class="viewcode-back" href="../sudoku_p.html#sudoku_p.sudoku.getAllPairCandidates">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">getAllPairCandidates</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">pairList</span><span class="o">=</span><span class="p">[]</span>
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">9</span><span class="p">):</span>
+            <span class="n">cl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getAllRowCandidates</span><span class="p">(</span><span class="n">row</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">cl</span><span class="o">!=</span><span class="kc">None</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">elem</span> <span class="ow">in</span> <span class="n">cl</span><span class="o">.</span><span class="n">candidateList</span><span class="p">:</span>
+                    <span class="n">pvl</span> <span class="o">=</span> <span class="n">elem</span><span class="o">.</span><span class="n">possibleValueList</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pvl</span><span class="p">)</span><span class="o">==</span><span class="mi">2</span><span class="p">:</span>
+                        <span class="n">pairList</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">elem</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pairList</span></div>
+
+
+<div class="viewcode-block" id="sudoku.isSolved">
+<a class="viewcode-back" href="../sudoku_p.html#sudoku_p.sudoku.isSolved">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">isSolved</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;check if the SUDOKU is solved&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">9</span><span class="p">):</span>    <span class="c1"># check that there are no empty cells in the board</span>
+            <span class="k">if</span> <span class="mi">0</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getRow</span><span class="p">(</span><span class="n">i</span><span class="p">):</span>
+                <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+    
+<div class="viewcode-block" id="sudoku.getNumEmptyCells">
+<a class="viewcode-back" href="../sudoku_p.html#sudoku_p.sudoku.getNumEmptyCells">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">getNumEmptyCells</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;return the number of empty cells in the SUDOKU&quot;&quot;&quot;</span>
+        <span class="n">numEmpty</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">9</span><span class="p">):</span>
+            <span class="n">numEmpty</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getRow</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">numEmpty</span></div>
+
+
+<div class="viewcode-block" id="sudoku.printAllCandidates">
+<a class="viewcode-back" href="../sudoku_p.html#sudoku_p.sudoku.printAllCandidates">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">printAllCandidates</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;print candidates for the overall sudoku (for all rows)&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">9</span><span class="p">):</span>
+            <span class="n">rowCandidateList</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getAllRowCandidates</span><span class="p">(</span><span class="n">row</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">rowCandidateList</span><span class="p">)</span>
+            <span class="n">numSingles</span><span class="p">,</span> <span class="n">rowSingles</span> <span class="o">=</span> <span class="n">rowCandidateList</span><span class="o">.</span><span class="n">getSingles</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">numSingles</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">single</span> <span class="ow">in</span> <span class="n">rowSingles</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Found Single: </span><span class="si">{</span><span class="n">single</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">numHiddenSingles</span><span class="p">,</span> <span class="n">aHiddenSingles</span> <span class="o">=</span> <span class="n">rowCandidateList</span><span class="o">.</span><span class="n">getHiddenSingles</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">numHiddenSingles</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">hiddenSingle</span> <span class="ow">in</span> <span class="n">aHiddenSingles</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Found hidden Single: </span><span class="si">{</span><span class="n">hiddenSingle</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="sudoku.solvePrintHeader">
+<a class="viewcode-back" href="../sudoku_p.html#sudoku_p.sudoku.solvePrintHeader">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">solvePrintHeader</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">type</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="o">==</span><span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">myPrint</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;== starting solver based on row Candidates&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">type</span><span class="o">==</span><span class="mi">1</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">myPrint</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;== starting solver based on col Candidates&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">type</span><span class="o">==</span><span class="mi">2</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">myPrint</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;== starting solver based on box Candidates&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="sudoku.solve">
+<a class="viewcode-back" href="../sudoku_p.html#sudoku_p.sudoku.solve">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">solve</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;solve SUDOKU &quot;&quot;&quot;</span>
+        <span class="n">foundNewCandidate</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="n">foundNewCandidate</span><span class="p">:</span>
+            <span class="n">foundNewCandidate</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">loopCount</span> <span class="o">=</span> <span class="n">i</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">isSolved</span><span class="p">():</span>                 <span class="k">return</span> <span class="kc">True</span>
+            <span class="k">elif</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAX_SOLVER_LOOPS</span><span class="p">:</span>     <span class="k">return</span> <span class="kc">False</span>                
+            <span class="bp">self</span><span class="o">.</span><span class="n">myPrint</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;===== Loop </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">:&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="nb">type</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">3</span><span class="p">):</span>   <span class="c1"># loop to run algo on row, col and box candidate lists</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">solvePrintHeader</span><span class="p">(</span><span class="nb">type</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">9</span><span class="p">):</span>
+                    <span class="k">if</span>   <span class="nb">type</span><span class="o">==</span><span class="mi">0</span><span class="p">:</span>   <span class="n">aCandidateList</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getAllRowCandidates</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+                    <span class="k">elif</span> <span class="nb">type</span><span class="o">==</span><span class="mi">1</span><span class="p">:</span>   <span class="n">aCandidateList</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getAllColCandidates</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+                    <span class="k">elif</span> <span class="nb">type</span><span class="o">==</span><span class="mi">2</span><span class="p">:</span>   <span class="n">aCandidateList</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getAllBoxCandidates</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">aCandidateList</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">myPrint</span><span class="p">(</span><span class="n">aCandidateList</span><span class="p">)</span>
+                        <span class="n">numSingles</span><span class="p">,</span> <span class="n">aSinges</span> <span class="o">=</span> <span class="n">aCandidateList</span><span class="o">.</span><span class="n">getSingles</span><span class="p">()</span>
+                        <span class="k">if</span> <span class="n">numSingles</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">:</span>
+                            <span class="k">for</span> <span class="n">single</span> <span class="ow">in</span> <span class="n">aSinges</span><span class="p">:</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">myPrint</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;... found single: </span><span class="si">{</span><span class="n">single</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">setElem</span><span class="p">(</span><span class="n">single</span><span class="o">.</span><span class="n">row</span><span class="p">,</span><span class="n">single</span><span class="o">.</span><span class="n">col</span><span class="p">,</span><span class="n">single</span><span class="o">.</span><span class="n">possibleValueList</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">numUniqueCandidatesFound</span> <span class="o">+=</span> <span class="mi">1</span>
+                                <span class="n">foundNewCandidate</span> <span class="o">=</span> <span class="kc">True</span>                        
+                        <span class="n">numHiddenSingles</span><span class="p">,</span> <span class="n">aHiddenSingles</span> <span class="o">=</span> <span class="n">aCandidateList</span><span class="o">.</span><span class="n">getHiddenSingles</span><span class="p">()</span>
+                        <span class="k">if</span> <span class="n">numHiddenSingles</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">:</span>
+                            <span class="k">for</span> <span class="n">hiddenSingle</span> <span class="ow">in</span> <span class="n">aHiddenSingles</span><span class="p">:</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">myPrint</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;... found hidden single: </span><span class="si">{</span><span class="n">hiddenSingle</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">setElem</span><span class="p">(</span><span class="n">hiddenSingle</span><span class="o">.</span><span class="n">row</span><span class="p">,</span><span class="n">hiddenSingle</span><span class="o">.</span><span class="n">col</span><span class="p">,</span><span class="n">hiddenSingle</span><span class="o">.</span><span class="n">possibleValueList</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">numHiddenSinglesFound</span> <span class="o">+=</span> <span class="mi">1</span>
+                                <span class="n">foundNewCandidate</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+    
+<div class="viewcode-block" id="sudoku.storeBoard">
+<a class="viewcode-back" href="../sudoku_p.html#sudoku_p.sudoku.storeBoard">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">storeBoard</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;STORE the actual board in stoBoard&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">elem</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stoBoard</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="sudoku.recallBoard">
+<a class="viewcode-back" href="../sudoku_p.html#sudoku_p.sudoku.recallBoard">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">recallBoard</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;RECALL the actual board from stoBoard&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">elem</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">board</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stoBoard</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="sudoku.solveRand">
+<a class="viewcode-back" href="../sudoku_p.html#sudoku_p.sudoku.solveRand">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">solveRand</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;solve SUDOKU, in case that no analytic solution is found start randomized trials&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">solve</span><span class="p">():</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;... no analytic solution found, randomized trials will start here&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">storeBoard</span><span class="p">()</span>
+            <span class="n">stored_loopCount</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">loopCount</span>
+            <span class="n">stored_numUniqueCandidatesFound</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">numUniqueCandidatesFound</span>
+            <span class="n">stored_numHiddenSinglesFound</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">numHiddenSinglesFound</span>
+            <span class="n">pairList</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getAllPairCandidates</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">MAX_NUM_RAND_TRIALS</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">randCount</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">randPairList</span> <span class="o">=</span><span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">pairList</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">myPrint</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;... found </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">pairList</span><span class="p">)</span><span class="si">}</span><span class="s2"> pairs&quot;</span><span class="p">)</span>
+                <span class="n">randPairFlag</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="c1"># for each pair, generate a rand flag that determines if this element is randomized</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">pair</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">pairList</span><span class="p">):</span>
+                    <span class="n">randPairFlag</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
+                <span class="c1"># do the randomization and print the randomization</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">elem</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">randPairList</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">randPairFlag</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">==</span><span class="mi">1</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span><span class="o">==</span><span class="mi">1</span><span class="p">:</span>
+                            <span class="n">pvlValue</span> <span class="o">=</span> <span class="n">elem</span><span class="o">.</span><span class="n">possibleValueList</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">pvlValue</span> <span class="o">=</span> <span class="n">elem</span><span class="o">.</span><span class="n">possibleValueList</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                        <span class="n">elem</span><span class="o">.</span><span class="n">possibleValueList</span> <span class="o">=</span> <span class="p">[</span><span class="n">pvlValue</span><span class="p">]</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">myPrint</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pairList</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">}</span><span class="s2"> -&gt; set to </span><span class="si">{</span><span class="n">randPairList</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="c1"># now set the randomized elements</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">elem</span> <span class="ow">in</span>  <span class="nb">enumerate</span><span class="p">(</span><span class="n">randPairList</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">randPairFlag</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">==</span><span class="mi">1</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">setElem</span><span class="p">(</span><span class="n">elem</span><span class="o">.</span><span class="n">row</span><span class="p">,</span> <span class="n">elem</span><span class="o">.</span><span class="n">col</span><span class="p">,</span> <span class="n">elem</span><span class="o">.</span><span class="n">possibleValueList</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">solve</span><span class="p">():</span>
+                    <span class="k">return</span> <span class="kc">True</span>
+                <span class="c1"># randomization failed here, restore board and statistics before trying the next randomization inside the loop</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">recallBoard</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">loopCount</span> <span class="o">=</span> <span class="n">stored_loopCount</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">numUniqueCandidatesFound</span> <span class="o">=</span> <span class="n">stored_numUniqueCandidatesFound</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">numHiddenSinglesFound</span> <span class="o">=</span> <span class="n">stored_numHiddenSinglesFound</span>
+
+            <span class="k">return</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="sudoku.printStatistics">
+<a class="viewcode-back" href="../sudoku_p.html#sudoku_p.sudoku.printStatistics">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">printStatistics</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># TBD WSC</span>
+        <span class="k">return</span> <span class="kc">False</span>  </div>
+</div>
+
+
+    <span class="c1"># end of class: sudoku</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Sudoku</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../modules.html">src</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Werner Schoegler.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>sudoku &#8212; Sudoku 0.0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=d45e8c67"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for sudoku</h1><div class="highlight"><pre>
+<span></span><span class="c1"># /usr/local/bin/python3</span>
+
+<span class="sd">&quot;&quot;&quot; program to solve SUDOKUs by finding unique candidates</span>
+<span class="sd">For command description, start $python3 sudoku.py -help</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="n">VERSION</span> <span class="o">=</span> <span class="s2">&quot;0.21&quot;</span>
+<span class="n">VERSION_DATE</span> <span class="o">=</span> <span class="s2">&quot;13-Mar-2025&quot;</span>
+
+<span class="c1"># file name of input file with SUDOKUs</span>
+<span class="n">SU_FILE_NAME</span> <span class="o">=</span> <span class="s2">&quot;easy_50.txt&quot;</span>
+<span class="c1"># select the SUDOKUs to be solved by their number in the file</span>
+<span class="c1"># for example, to solve SUDOKUs 6,7 and 10, set SU_NUM_LIST = [6,7,10]</span>
+<span class="n">SU_NUM_LIST</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="c1"># for case that all SUDOKUs in the file should be solved, set SOLVE_ALL = True</span>
+<span class="c1"># in this case, the list SU_NUM_LIST is ignored</span>
+<span class="n">SOLVE_ALL</span> <span class="o">=</span> <span class="kc">False</span>
+
+<span class="c1"># select debug level </span>
+<span class="n">DEBUG_LEVEL</span> <span class="o">=</span> <span class="mi">0</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">sudoku_io</span><span class="w"> </span><span class="kn">import</span> <span class="n">sudoku_io</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sudoku_p</span><span class="w"> </span><span class="kn">import</span> <span class="n">sudoku</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+
+<span class="c1"># parse input arguments</span>
+<span class="c1"># example usage: $python sudoku_ex1.py -num=4</span>
+<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">)</span><span class="o">&gt;=</span><span class="mi">2</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="nb">len</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">)):</span>
+        <span class="n">actArg</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s2">&quot;-debug&quot;</span> <span class="ow">in</span> <span class="n">actArg</span><span class="p">:</span>
+            <span class="n">DEBUG_LEVEL</span><span class="o">=</span><span class="mi">1</span>
+        <span class="k">if</span> <span class="n">DEBUG_LEVEL</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;... processing argument: </span><span class="si">{</span><span class="n">actArg</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;-f&quot;</span> <span class="ow">in</span> <span class="n">actArg</span><span class="p">:</span>
+            <span class="n">fname</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">fname</span><span class="p">)</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">:</span>
+                 <span class="n">SU_FILE_NAME</span><span class="o">=</span><span class="n">fname</span>
+                 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;... input file name: </span><span class="si">{</span><span class="n">SU_FILE_NAME</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;-num&quot;</span> <span class="ow">in</span> <span class="n">actArg</span><span class="p">:</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">n</span><span class="o">&lt;</span><span class="mi">1</span><span class="p">:</span>
+                <span class="n">n</span><span class="o">=</span><span class="mi">1</span>
+            <span class="n">SU_NUM_LIST</span> <span class="o">=</span> <span class="p">[</span><span class="n">n</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s2">&quot;-all&quot;</span> <span class="ow">in</span> <span class="n">actArg</span><span class="p">:</span>
+            <span class="n">SOLVE_ALL</span><span class="o">=</span><span class="kc">True</span>
+        <span class="k">if</span> <span class="s2">&quot;-noprint&quot;</span> <span class="ow">in</span> <span class="n">actArg</span><span class="p">:</span>
+            <span class="n">PRINT_FLAG</span><span class="o">=</span><span class="kc">False</span>
+        <span class="k">if</span> <span class="s2">&quot;-h&quot;</span> <span class="ow">in</span> <span class="n">actArg</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Optional arguments for sudoku_ex1:&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    -h               ... print help&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    -v               ... show program version&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    -debug           ... show detailed debug info&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    -num 2           ... solve SUDOKU #3&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    -all             ... solve all SUDOKUs read from input file&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    -noprint         ... no print of SUDOKU solution, just print PASS/FAIL results&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    -f sudoku_1.txt  ... read SUDOKUs from file sudoku_1.txt&quot;</span><span class="p">)</span>
+            <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">()</span>
+        <span class="k">if</span> <span class="s2">&quot;-v&quot;</span> <span class="ow">in</span> <span class="n">actArg</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;    Welcome to sudoku, this is program version </span><span class="si">{</span><span class="n">VERSION</span><span class="si">}</span><span class="s2"> from </span><span class="si">{</span><span class="n">VERSION_DATE</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">()</span>
+
+<div class="viewcode-block" id="getBoard">
+<a class="viewcode-back" href="../sudoku.html#sudoku.getBoard">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">getBoard</span><span class="p">(</span><span class="n">sudokuText</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;convert a SUDOKU in text form to a 9x9 list&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sudokuText</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">81</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Error: SUDOKU text has not the correct length&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">board</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">i</span><span class="o">=</span><span class="mi">0</span>
+    <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">9</span><span class="p">):</span>
+        <span class="n">vector</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">9</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">sudokuText</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;.&quot;</span><span class="p">:</span>  <span class="c1"># empty element is represented by a dot</span>
+                <span class="n">vector</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">vector</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">sudokuText</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span>
+            <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">board</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vector</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">board</span></div>
+
+
+<span class="c1"># ------------------------------------------------------------------------------------------------</span>
+<span class="c1"># main program</span>
+<span class="c1"># ------------------------------------------------------------------------------------------------</span>
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">suSolvedInfo</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="c1"># read the input file into arrays suText, suComment</span>
+    <span class="n">myIo</span> <span class="o">=</span> <span class="n">sudoku_io</span><span class="p">()</span>
+   
+    <span class="n">numRead</span> <span class="o">=</span> <span class="n">myIo</span><span class="o">.</span><span class="n">readFile</span><span class="p">(</span><span class="n">SU_FILE_NAME</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;... total of </span><span class="si">{</span><span class="n">numRead</span><span class="si">}</span><span class="s2"> lines read from file name </span><span class="si">{</span><span class="n">SU_FILE_NAME</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+ 
+    <span class="c1"># correct numbers above the number of sudokus defined in file</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">elem</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">SU_NUM_LIST</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">SU_NUM_LIST</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">&gt;</span><span class="n">numRead</span><span class="p">:</span>
+            <span class="n">SU_NUM_LIST</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">=</span><span class="n">numRead</span>
+
+    <span class="n">suTextList</span><span class="p">,</span> <span class="n">suCommentList</span> <span class="o">=</span> <span class="n">myIo</span><span class="o">.</span><span class="n">getSudokuList</span><span class="p">()</span>
+    <span class="c1"># number of the SUDOKU that should be solved</span>
+    <span class="n">suNumber</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="c1"># loop over all SUDOKUs</span>
+    <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">su</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">suTextList</span><span class="p">):</span>
+        <span class="n">comment</span> <span class="o">=</span> <span class="n">suCommentList</span><span class="p">[</span><span class="n">suNumber</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="c1"># if not all sudokus should be solved, execute only number defined in SU_NUM_LIST</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">SOLVE_ALL</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="n">suNumber</span> <span class="ow">in</span> <span class="n">SU_NUM_LIST</span><span class="p">):</span>
+            <span class="n">suNumber</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">continue</span>
+        <span class="n">board</span> <span class="o">=</span>  <span class="n">getBoard</span><span class="p">(</span><span class="n">su</span><span class="p">)</span>
+        <span class="c1"># create a sudoku object</span>
+        <span class="k">if</span> <span class="n">board</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error: SUDOKU </span><span class="si">{</span><span class="n">suNumber</span><span class="si">}</span><span class="s2"> is not valid&quot;</span><span class="p">)</span>
+            <span class="n">suNumber</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">continue</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;===== SUDOKU: </span><span class="si">{</span><span class="n">suNumber</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">comment</span><span class="si">}</span><span class="s2">) =====&quot;</span><span class="p">)</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="n">sudoku</span><span class="p">(</span><span class="n">board</span><span class="p">)</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">setDebugLevel</span><span class="p">(</span><span class="n">DEBUG_LEVEL</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+        <span class="c1"># run the solver</span>
+        <span class="n">startTime</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">process_time_ns</span><span class="p">()</span>
+        <span class="c1"># -----&gt; HERE THE solver is started &lt;-----</span>
+        <span class="n">suIsSolved</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">solveRand</span><span class="p">()</span>
+        <span class="n">endTime</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">process_time_ns</span><span class="p">()</span>
+        <span class="n">elapsedTime_ms</span> <span class="o">=</span> <span class="p">(</span><span class="n">endTime</span> <span class="o">-</span> <span class="n">startTime</span><span class="p">)</span><span class="o">/</span><span class="mf">1.0e6</span>
+        <span class="k">if</span> <span class="n">suIsSolved</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PASS, SUDOKU </span><span class="si">{</span><span class="n">suNumber</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">comment</span><span class="si">}</span><span class="s2">) is solved&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;FAIL, SUDOKU </span><span class="si">{</span><span class="n">suNumber</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">comment</span><span class="si">}</span><span class="s2">) could not be solved&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Elapsed time [ms]: </span><span class="si">{</span><span class="n">elapsedTime_ms</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="c1"># for each sudoku some info is stored for summary later on</span>
+        <span class="n">suSolvedInfo</span><span class="p">[</span><span class="n">suNumber</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;solved&quot;</span><span class="p">:</span><span class="n">s</span><span class="o">.</span><span class="n">isSolved</span><span class="p">(),</span> <span class="s2">&quot;unique&quot;</span><span class="p">:</span><span class="n">s</span><span class="o">.</span><span class="n">numUniqueCandidatesFound</span><span class="p">,</span> <span class="s2">&quot;hidden&quot;</span><span class="p">:</span> <span class="n">s</span><span class="o">.</span><span class="n">numHiddenSinglesFound</span><span class="p">,</span> \
+                                <span class="s2">&quot;loops&quot;</span><span class="p">:</span><span class="n">s</span><span class="o">.</span><span class="n">loopCount</span><span class="p">,</span> <span class="s2">&quot;elapsedTime_ms&quot;</span><span class="p">:</span><span class="n">elapsedTime_ms</span><span class="p">,</span> <span class="s2">&quot;comment&quot;</span><span class="p">:</span><span class="n">s</span><span class="o">.</span><span class="n">comment</span><span class="p">,</span> <span class="s2">&quot;randCount&quot;</span><span class="p">:</span><span class="n">s</span><span class="o">.</span><span class="n">randCount</span><span class="p">}</span>
+        <span class="n">suNumber</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="n">solvedCount</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">notSolvedCount</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">solvedList</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">unsolvedList</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">totalElapsedTime_ms</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">totalElapsedTimeSolved_ms</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">totalElapsedTimeUnsolved_ms</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">===== SUMMARY of all SUDOKUs =====&quot;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">elem</span> <span class="ow">in</span> <span class="n">suSolvedInfo</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;SUDOKU </span><span class="si">{</span><span class="n">elem</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">suSolvedInfo</span><span class="p">[</span><span class="n">elem</span><span class="p">][</span><span class="s1">&#39;comment&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span><span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="n">totalElapsedTime_ms</span> <span class="o">+=</span> <span class="n">suSolvedInfo</span><span class="p">[</span><span class="n">elem</span><span class="p">][</span><span class="s2">&quot;elapsedTime_ms&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">suSolvedInfo</span><span class="p">[</span><span class="n">elem</span><span class="p">][</span><span class="s1">&#39;solved&#39;</span><span class="p">]:</span>
+            <span class="n">totalElapsedTimeSolved_ms</span> <span class="o">+=</span> <span class="n">suSolvedInfo</span><span class="p">[</span><span class="n">elem</span><span class="p">][</span><span class="s2">&quot;elapsedTime_ms&quot;</span><span class="p">]</span>
+            <span class="n">solvedCount</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">solvedList</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">elem</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;   ... SOLVED     #</span><span class="si">{</span><span class="n">solvedCount</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">totalElapsedTimeUnsolved_ms</span> <span class="o">+=</span> <span class="n">suSolvedInfo</span><span class="p">[</span><span class="n">elem</span><span class="p">][</span><span class="s2">&quot;elapsedTime_ms&quot;</span><span class="p">]</span>
+            <span class="n">notSolvedCount</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">unsolvedList</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">elem</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;   ... NOT SOLVED #</span><span class="si">{</span><span class="n">notSolvedCount</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;with </span><span class="si">{</span><span class="n">suSolvedInfo</span><span class="p">[</span><span class="n">elem</span><span class="p">][</span><span class="s1">&#39;unique&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> unique candidates, &quot;</span><span class="p">,</span><span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">suSolvedInfo</span><span class="p">[</span><span class="n">elem</span><span class="p">][</span><span class="s1">&#39;hidden&#39;</span><span class="p">]</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">suSolvedInfo</span><span class="p">[</span><span class="n">elem</span><span class="p">][</span><span class="s1">&#39;hidden&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> hidden singles, &quot;</span><span class="p">,</span><span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">suSolvedInfo</span><span class="p">[</span><span class="n">elem</span><span class="p">][</span><span class="s1">&#39;randCount&#39;</span><span class="p">]</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">:</span>
+             <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">suSolvedInfo</span><span class="p">[</span><span class="n">elem</span><span class="p">][</span><span class="s1">&#39;randCount&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> randomizations, &quot;</span><span class="p">,</span><span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">suSolvedInfo</span><span class="p">[</span><span class="n">elem</span><span class="p">][</span><span class="s1">&#39;loops&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> loops&quot;</span><span class="p">,</span><span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;========== Summary for file </span><span class="si">{</span><span class="n">SU_FILE_NAME</span><span class="si">}</span><span class="s2"> ==========&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;===== Total of </span><span class="si">{</span><span class="n">solvedCount</span><span class="si">}</span><span class="s2"> SUDOKUs are solved&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;===== Total of </span><span class="si">{</span><span class="n">notSolvedCount</span><span class="si">}</span><span class="s2"> SUDOKUs are not solved&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">unsolvedList</span><span class="p">)</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;SUDOKUs that are solved: </span><span class="si">{</span><span class="n">solvedList</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;SUDOKUs that are not solved: </span><span class="si">{</span><span class="n">unsolvedList</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;= Summary: unsolved count = </span><span class="si">{</span><span class="n">notSolvedCount</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;= Summary:   solved count = </span><span class="si">{</span><span class="n">solvedCount</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;= Summary: </span><span class="si">{</span><span class="mf">100.0</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">solvedCount</span><span class="o">/</span><span class="p">(</span><span class="n">solvedCount</span><span class="o">+</span><span class="n">notSolvedCount</span><span class="p">)</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> % of the SUDOKUs are solved&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">solvedCount</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Average elapsed time per solved SUDOKU [ms]: </span><span class="si">{</span><span class="n">totalElapsedTimeSolved_ms</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="n">solvedCount</span><span class="p">)</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">notSolvedCount</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Average elapsed time per unsolved SUDOKU [ms]: </span><span class="si">{</span><span class="n">totalElapsedTimeUnsolved_ms</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="n">notSolvedCount</span><span class="p">)</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">solvedCount</span> <span class="o">+</span> <span class="n">notSolvedCount</span><span class="p">)</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Average elapsed time per SUDOKU [ms]: </span><span class="si">{</span><span class="n">totalElapsedTime_ms</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="n">solvedCount</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">notSolvedCount</span><span class="p">)</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Sudoku</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../modules.html">src</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Werner Schoegler.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
